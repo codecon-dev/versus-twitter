@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id         String    @id @default(uuid())
+  name       String
+  username   String    @unique
+  email      String    @unique
+  password   String
+  profilePic String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  disabledAt DateTime?
+  posts      Post[]
+  likes      Like[]
+  retweets   Retweet[]
+  comments   Comment[]
+  notificationsReceived Notification[] @relation("receivedNotifications")
+  notificationsSent     Notification[] @relation("sentNotifications")
+  followers  Follow[]  @relation("following") // followers of this user
+  following  Follow[]  @relation("follower") // users this user is following
+}
+
+model Post {
+  id        String    @id @default(uuid())
+  content   String    @db.VarChar(140)
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  likes     Like[]
+  retweets  Retweet[]
+  comments  Comment[]
+  notifications Notification[]
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+}
+
+model Retweet {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+}
+
+model Follow {
+  followerId  String
+  followingId String
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@id([followerId, followingId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String   @db.VarChar(280)
+  authorId  String
+  postId    String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String   // The user receiving the notification
+  actorId   String   // The user performing the action causing the notification
+  type      String   // "LIKE", "RETWEET", "COMMENT", "FOLLOW"
+  postId    String?  // Optional, if the notification is related to a post
+  read      Boolean  @default(false)
+  user      User     @relation("receivedNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  actor     User     @relation("sentNotifications", fields: [actorId], references: [id], onDelete: Cascade)
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+}
