@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  username     String   @unique
+  displayName  String?  @map("display_name")
+  avatarUrl    String?  @map("avatar_url")
+  bio          String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  posts       Post[]   @relation("Author")
+  likes       Like[]
+  bookmarks   Bookmark[]
+  notificationsReceived Notification[] @relation("NotificationsReceived")
+  notificationsSent     Notification[] @relation("NotificationActor")
+
+  following  Follow[] @relation("Following")
+  followers  Follow[] @relation("Followers")
+
+  @@map("users")
+}
+
+model Post {
+  id           String   @id @default(cuid())
+  authorId     String   @map("author_id")
+  retweetOfId  String?  @map("retweet_of_id")
+  content      String
+  mediaUrl     String?  @map("media_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  author    User   @relation("Author", fields: [authorId], references: [id], onDelete: Cascade)
+  retweetOf Post?  @relation("RetweetOf", fields: [retweetOfId], references: [id], onDelete: SetNull)
+  retweets  Post[] @relation("RetweetOf")
+
+  likes      Like[]
+  bookmarks  Bookmark[]
+
+  @@index([authorId])
+  @@index([retweetOfId])
+  @@index([createdAt(sort: Desc)])
+  @@map("posts")
+}
+
+model Bookmark {
+  userId    String   @map("user_id")
+  postId    String   @map("post_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([userId])
+  @@map("bookmarks")
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  type      String   // "like" | "retweet" | "follow"
+  actorId   String   @map("actor_id")
+  postId    String?  @map("post_id")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user  User  @relation("NotificationsReceived", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model Like {
+  userId    String   @map("user_id")
+  postId    String   @map("post_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([postId])
+  @@map("likes")
+}
+
+model Follow {
+  followerId  String   @map("follower_id")
+  followedId  String   @map("followed_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  follower User @relation("Followers", fields: [followerId], references: [id], onDelete: Cascade)
+  followed User @relation("Following", fields: [followedId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followedId])
+  @@index([followedId])
+  @@map("follows")
+}
